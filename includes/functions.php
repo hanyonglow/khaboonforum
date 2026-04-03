@@ -10,34 +10,111 @@ require_once __DIR__ . '/../config/database.php';
  */
 function get_all_posts($limit = 50, $offset = 0) {
     $pdo = get_db_connection();
-    if (!$pdo) return [];
-    
-    $stmt = $pdo->prepare("
-        SELECT p.*, 
-               COUNT(DISTINCT c.id) as comment_count,
-               COUNT(DISTINCT r.id) as reaction_count,
-               GROUP_CONCAT(DISTINCT r.reaction_type) as reactions
-        FROM posts p
-        LEFT JOIN comments c ON p.id = c.post_id
-        LEFT JOIN reactions r ON p.id = r.post_id
-        GROUP BY p.id
-        ORDER BY p.created_at DESC
-        LIMIT :limit OFFSET :offset
-    ");
-    
-    $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
-    $stmt->execute();
-    
-    $posts = $stmt->fetchAll();
-    
-    // Process reactions
-    foreach ($posts as &$post) {
-        $post['reactions'] = $post['reactions'] ? explode(',', $post['reactions']) : [];
-        $post['reaction_counts'] = array_count_values($post['reactions']);
+    if (!$pdo) {
+        error_log("Database connection failed in get_all_posts");
+        return [];
     }
     
-    return $posts;
+    try {
+        // First, get all posts
+        $stmt = $pdo->prepare("
+            SELECT * 
+            FROM posts 
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :offset
+        ");
+        
+        $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $posts = $stmt->fetchAll();
+        
+        if (empty($posts)) {
+            return [];
+        }
+        
+        // Get comment counts for each post
+        $post_ids = array_column($posts, 'id');
+        $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
+        
+        // Get comment counts
+        $stmt = $pdo->prepare("
+            SELECT post_id, COUNT(*) as count 
+            FROM comments 
+            WHERE post_id IN ($placeholders)
+            GROUP BY post_id
+        ");
+        $stmt->execute($post_ids);
+        $comment_counts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        
+        // Get reaction counts
+        $stmt = $pdo->prepare("
+            SELECT post_id, COUNT(*) as count 
+            FROM reactions 
+            WHERE post_id IN ($placeholders)
+            GROUP BY post_id
+        ");
+        $stmt->execute($post_ids);
+        $reaction_counts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        
+        // Get reaction types
+        $stmt = $pdo->prepare("
+            SELECT post_id, reaction_type, COUNT(*) as count
+            FROM reactions 
+            WHERE post_id IN ($placeholders)
+            GROUP BY post_id, reaction_type
+        ");
+        $stmt->execute($post_ids);
+        $reaction_details = $stmt->fetchAll();
+        
+        // Organize reaction details by post
+        $post_reactions = [];
+        foreach ($reaction_details as $detail) {
+            $post_id = $detail['post_id'];
+            if (!isset($post_reactions[$post_id])) {
+                $post_reactions[$post_id] = [];
+            }
+            $post_reactions[$post_id][$detail['reaction_type']] = $detail['count'];
+        }
+        
+        // Combine all data
+        foreach ($posts as &$post) {
+            $post_id = $post['id'];
+            
+            $post['comment_count'] = $comment_counts[$post_id] ?? 0;
+            $post['reaction_count'] = $reaction_counts[$post_id] ?? 0;
+            $post['reactions'] = array_keys($post_reactions[$post_id] ?? []);
+            $post['reaction_counts'] = $post_reactions[$post_id] ?? [];
+        }
+        
+        return $posts;
+        
+    } catch (PDOException $e) {
+        error_log("Error in get_all_posts: " . $e->getMessage());
+        
+        // Fallback: return posts without counts
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM posts ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+            $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            $posts = $stmt->fetchAll();
+            
+            foreach ($posts as &$post) {
+                $post['comment_count'] = 0;
+                $post['reaction_count'] = 0;
+                $post['reactions'] = [];
+                $post['reaction_counts'] = [];
+            }
+            
+            return $posts;
+        } catch (PDOException $e2) {
+            error_log("Fallback also failed: " . $e2->getMessage());
+            return [];
+        }
+    }
 }
 
 /**
@@ -47,29 +124,70 @@ function get_post_by_id($post_id) {
     $pdo = get_db_connection();
     if (!$pdo) return null;
     
-    $stmt = $pdo->prepare("
-        SELECT p.*, 
-               COUNT(DISTINCT c.id) as comment_count,
-               COUNT(DISTINCT r.id) as reaction_count,
-               GROUP_CONCAT(DISTINCT r.reaction_type) as reactions
-        FROM posts p
-        LEFT JOIN comments c ON p.id = c.post_id
-        LEFT JOIN reactions r ON p.id = r.post_id
-        WHERE p.id = :id
-        GROUP BY p.id
-    ");
-    
-    $stmt->bindValue(':id', (int)$post_id, PDO::PARAM_INT);
-    $stmt->execute();
-    
-    $post = $stmt->fetch();
-    
-    if ($post) {
-        $post['reactions'] = $post['reactions'] ? explode(',', $post['reactions']) : [];
-        $post['reaction_counts'] = array_count_values($post['reactions']);
+    try {
+        // Get the post
+        $stmt = $pdo->prepare("SELECT * FROM posts WHERE id = :id");
+        $stmt->bindValue(':id', (int)$post_id, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $post = $stmt->fetch();
+        
+        if (!$post) {
+            return null;
+        }
+        
+        // Get comment count
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM comments WHERE post_id = :id");
+        $stmt->bindValue(':id', (int)$post_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $post['comment_count'] = $stmt->fetch()['count'];
+        
+        // Get reaction count
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM reactions WHERE post_id = :id");
+        $stmt->bindValue(':id', (int)$post_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $post['reaction_count'] = $stmt->fetch()['count'];
+        
+        // Get reaction details
+        $stmt = $pdo->prepare("SELECT reaction_type, COUNT(*) as count FROM reactions WHERE post_id = :id GROUP BY reaction_type");
+        $stmt->bindValue(':id', (int)$post_id, PDO::PARAM_INT);
+        $stmt->execute();
+        $reaction_details = $stmt->fetchAll();
+        
+        $post['reactions'] = [];
+        $post['reaction_counts'] = [];
+        
+        foreach ($reaction_details as $detail) {
+            $post['reactions'][] = $detail['reaction_type'];
+            $post['reaction_counts'][$detail['reaction_type']] = $detail['count'];
+        }
+        
+        return $post;
+        
+    } catch (PDOException $e) {
+        error_log("Error in get_post_by_id: " . $e->getMessage());
+        
+        // Fallback: just get the post without counts
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM posts WHERE id = :id");
+            $stmt->bindValue(':id', (int)$post_id, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            $post = $stmt->fetch();
+            
+            if ($post) {
+                $post['comment_count'] = 0;
+                $post['reaction_count'] = 0;
+                $post['reactions'] = [];
+                $post['reaction_counts'] = [];
+            }
+            
+            return $post;
+        } catch (PDOException $e2) {
+            error_log("Fallback also failed: " . $e2->getMessage());
+            return null;
+        }
     }
-    
-    return $post;
 }
 
 /**
