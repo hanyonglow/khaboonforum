@@ -72,8 +72,9 @@ if (!isset($_SESSION['csrf_token'])) {
                 </div>
             <?php endif; ?>
             
-            <!-- CSRF Token for forms -->
+            <!-- CSRF Token for forms and JavaScript -->
             <input type="hidden" id="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
+            <meta name="csrf-token" content="<?php echo $_SESSION['csrf_token']; ?>">
             
             <!-- Cached name for JavaScript -->
             <input type="hidden" id="cached_name" value="<?php echo $cached_name; ?>">

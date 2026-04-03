@@ -661,7 +661,26 @@ function showToast(message, type = 'info') {
  * CSRF Token Management
  */
 function getCsrfToken() {
-    return document.getElementById('csrf_token')?.value || '';
+    // Try multiple ways to get the CSRF token
+    const tokenInput = document.getElementById('csrf_token');
+    if (tokenInput && tokenInput.value) {
+        return tokenInput.value;
+    }
+    
+    // Check if token is in a meta tag
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken && metaToken.getAttribute('content')) {
+        return metaToken.getAttribute('content');
+    }
+    
+    // Check if token is in a data attribute on body
+    const bodyToken = document.body.dataset.csrfToken;
+    if (bodyToken) {
+        return bodyToken;
+    }
+    
+    console.error('CSRF token not found');
+    return '';
 }
 
 function setCsrfToken(token) {
