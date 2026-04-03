@@ -1,0 +1,74 @@
+{
+  "name": "KhaboonForum",
+  "short_name": "Khaboon",
+  "description": "A simple anonymous social media forum where you can share pictures and thoughts.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4f46e5",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22 fill=%22%234f46e5%22>💬</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22 fill=%22white%22>💬</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["social", "entertainment", "communication"],
+  "lang": "en",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "scope": "/",
+  "screenshots": [
+    {
+      "src": "https://via.placeholder.com/540x720/4f46e5/ffffff?text=KhaboonForum+Mobile",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "KhaboonForum mobile interface"
+    },
+    {
+      "src": "https://via.placeholder.com/1024x768/4f46e5/ffffff?text=KhaboonForum+Desktop",
+      "sizes": "1024x768",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "KhaboonForum desktop interface"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Post",
+      "short_name": "Post",
+      "description": "Create a new post",
+      "url": "/create.php",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22 fill=%22%234f46e5%22>📝</text></svg>",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "View Posts",
+      "short_name": "Posts",
+      "description": "Browse all posts",
+      "url": "/index.php",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22 fill=%22%234f46e5%22>📰</text></svg>",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

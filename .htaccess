@@ -1,0 +1,129 @@
+# KhaboonForum - Apache Configuration
+
+# Security Headers
+<IfModule mod_headers.c>
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # Enable XSS protection
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Prevent MIME type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # Referrer policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # Content Security Policy
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com/ajax/libs/ https://fonts.googleapis.com/; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com/ajax/libs/ https://fonts.googleapis.com/; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com/; connect-src 'self'"
+</IfModule>
+
+# Disable directory listing
+Options -Indexes
+
+# Prevent access to sensitive files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "\.(sql|log|ini|conf|bak|swp)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect config directory
+<Directory "config">
+    Order allow,deny
+    Deny from all
+</Directory>
+
+# Protect includes directory
+<Directory "includes">
+    Order allow,deny
+    Deny from all
+</Directory>
+
+# Protect uploads directory (allow access to files but not directory listing)
+<Directory "uploads">
+    Options -Indexes
+    Order allow,deny
+    Allow from all
+    
+    # Prevent execution of PHP files in uploads
+    <FilesMatch "\.php$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+# URL Rewriting
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Force HTTPS (uncomment if using SSL)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+    
+    # Remove trailing slashes
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)/$ /$1 [L,R=301]
+    
+    # Redirect to index.php for clean URLs
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^post/([0-9]+)/?$ post.php?id=$1 [L,QSA]
+    RewriteRule ^create/?$ create.php [L]
+    
+    # Prevent hotlinking of images
+    RewriteCond %{HTTP_REFERER} !^$
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?%{HTTP_HOST}/.*$ [NC]
+    RewriteRule \.(jpg|jpeg|png|gif|webp)$ - [F,NC]
+</IfModule>
+
+# Error Pages
+ErrorDocument 400 /index.php
+ErrorDocument 401 /index.php
+ErrorDocument 403 /index.php
+ErrorDocument 404 /index.php
+ErrorDocument 500 /index.php
+
+# Compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Cache Control
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # Images
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+    
+    # CSS, JavaScript
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    
+    # Fonts
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+</IfModule>
+
+# PHP Settings (if allowed by hosting)
+<IfModule mod_php.c>
+    php_value upload_max_filesize 5M
+    php_value post_max_size 6M
+    php_value max_execution_time 30
+    php_value max_input_time 60
+    php_value memory_limit 128M
+</IfModule>
