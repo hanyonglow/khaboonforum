@@ -1,33 +1,23 @@
 <?php
 /**
- * Single Post View Page
- * ULTIMATE FIX VERSION - Aggressive cache prevention
+ * Single Post View Page - Fixed version
  */
 
-// ============================================
-// PART 1: AGGRESSIVE CACHE PREVENTION HEADERS
-// ============================================
-// These MUST come before ANY output, including whitespace
-
-// Start session early
+// Start session at the very beginning
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Set ALL cache prevention headers
-header("Cache-Control: no-cache, no-store, must-revalidate, max-age=0, s-maxage=0, no-transform");
+// AGGRESSIVE cache prevention
+header("Cache-Control: no-cache, no-store, must-revalidate, max-age=0, s-maxage=0");
 header("Pragma: no-cache");
 header("Expires: Thu, 01 Jan 1970 00:00:00 GMT");
 header("X-Accel-Expires: 0");
+header("X-Khaboon-Version: " . date('YmdHis'));
 
-// Prevent proxy caching
-header("Surrogate-Control: no-store");
-header("CDN-Cache-Control: no-cache");
-
-// Add version headers for debugging
-$page_version = date('YmdHis') . '_' . bin2hex(random_bytes(4));
-header("X-Khaboon-Version: {$page_version}");
-header("X-Khaboon-Generated: " . date('Y-m-d H:i:s'));
+// Add a unique ID to prevent any proxy caching
+$unique_id = bin2hex(random_bytes(8));
+header("X-Khaboon-Unique: " . $unique_id);
 
 require_once __DIR__ . '/includes/header.php';
 
@@ -62,22 +52,18 @@ $page_title = 'Post by ' . htmlspecialchars($post['user_name']);
 $comments = get_comments_for_post($post_id);
 $reaction_types = get_reaction_types();
 
-// Generate cache-busting parameter for all URLs
-$cache_buster = 't=' . time();
-
 // Handle comment submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_comment'])) {
     $csrf_token = $_POST['csrf_token'] ?? '';
     
     if (!validate_csrf_token($csrf_token)) {
         $error_message = 'Invalid security token. Please try again.';
-    } elseif (!check_rate_limit('add_comment_' . $post_id, 10, 300)) { // 10 comments per 5 minutes per post
+    } elseif (!check_rate_limit('add_comment_' . $post_id, 10, 300)) {
         $error_message = 'Please wait before adding another comment.';
     } else {
         $name = sanitize($_POST['name'] ?? '');
         $content = $_POST['content'] ?? '';
         
-        // Validate content
         $validation = validate_post_content($content);
         if (!$validation['valid']) {
             $error_message = $validation['error'];
@@ -85,13 +71,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_comment'])) {
             $content = $validation['content'];
             
             if (add_comment($post_id, $name, $content)) {
-                // Save name to cookie
                 if ($name) {
-                    setcookie('khaboon_name', $name, time() + (60*60*24*30), '/'); // 30 days
+                    setcookie('khaboon_name', $name, time() + (60*60*24*30), '/');
                 }
                 
                 $success_message = 'Comment added successfully!';
-                $comments = get_comments_for_post($post_id); // Refresh comments
+                $comments = get_comments_for_post($post_id);
+                
+                // Redirect to avoid form resubmission
+                header("Location: post.php?id=" . $post_id . "&_=" . time() . "&success=1");
+                exit;
             } else {
                 $error_message = 'Failed to add comment. Please try again.';
             }
@@ -99,111 +88,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_comment'])) {
     }
 }
 
+// Check if comment was just added
+$comment_success = isset($_GET['success']) && $_GET['success'] == 1;
 // Check if post was just created
 $just_created = isset($_GET['created']) && $_GET['created'] == 1;
 ?>
 
-<!-- ============================================ -->
-<!-- PART 2: HTML META TAGS FOR CACHE PREVENTION -->
-<!-- ============================================ -->
+<!-- Add meta tags to prevent caching -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<meta name="robots" content="noindex, nofollow">
 
-<!-- ============================================ -->
-<!-- PART 3: JAVASCRIPT TO FIX CACHING ISSUES -->
-<!-- ============================================ -->
 <script>
-// Immediately unregister any Service Worker
-(function() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for (let registration of registrations) {
-                console.log('Unregistering Service Worker:', registration.scope);
-                registration.unregister().then(function(success) {
-                    if (success) {
-                        console.log('Service Worker unregistered successfully');
-                    } else {
-                        console.log('Service Worker unregistration failed');
-                    }
+    // Unregister Service Worker on load
+    document.addEventListener('DOMContentLoaded', function() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                registrations.forEach(registration => {
+                    console.log('Unregistering Service Worker:', registration.scope);
+                    registration.unregister();
                 });
-            }
-        });
-    }
-})();
-
-// Add cache-busting parameter to all links
-document.addEventListener('DOMContentLoaded', function() {
-    const timestamp = Date.now();
-    
-    // Add to all PHP links
-    document.querySelectorAll('a[href*=".php"]').forEach(function(link) {
-        try {
-            const url = new URL(link.href, window.location.origin);
-            if (url.origin === window.location.origin && url.pathname.endsWith('.php')) {
-                url.searchParams.set('_', timestamp);
-                link.href = url.toString();
-            }
-        } catch (e) {
-            // Ignore invalid URLs
+            });
         }
-    });
-    
-    // Add to forms
-    document.querySelectorAll('form[action*=".php"]').forEach(function(form) {
-        try {
-            const url = new URL(form.action, window.location.origin);
-            if (url.origin === window.location.origin && url.pathname.endsWith('.php')) {
-                url.searchParams.set('_', timestamp);
-                form.action = url.toString();
-            }
-        } catch (e) {
-            // Ignore invalid URLs
-        }
-    });
-    
-    // Log for debugging
-    console.log('Post page loaded with cache prevention:', {
-        version: '<?php echo $page_version; ?>',
-        timestamp: timestamp,
-        postId: <?php echo $post_id; ?>,
-        commentsCount: <?php echo count($comments); ?>
-    });
-});
-
-// Force reload if no comments found but post exists
-window.addEventListener('load', function() {
-    const commentCards = document.querySelectorAll('.comment-card');
-    const emptyComments = document.querySelector('.empty-comments');
-    
-    if (commentCards.length === 0 && !emptyComments) {
-        // Might be a caching issue
-        console.warn('Possible caching issue: No comments displayed');
         
-        // Show a warning after 2 seconds
-        setTimeout(function() {
-            const warning = document.createElement('div');
-            warning.className = 'alert alert-warning';
-            warning.innerHTML = `
-                <i class="fas fa-exclamation-triangle"></i>
-                <div>
-                    <strong>Possible caching issue detected</strong>
-                    <p>Comments might not be loading due to browser cache.</p>
-                    <button onclick="location.reload(true)" class="btn btn-sm">
-                        <i class="fas fa-sync-alt"></i> Force Refresh
-                    </button>
-                </div>
-            `;
-            
-            // Insert at the top of the page
-            const firstElement = document.body.firstChild;
-            if (firstElement) {
-                document.body.insertBefore(warning, firstElement);
-            }
-        }, 2000);
-    }
-});
+        // Add cache-busting to links
+        const timestamp = Date.now();
+        document.querySelectorAll('a[href*=".php"]:not([href*="?"])').forEach(link => {
+            const url = new URL(link.href, window.location.origin);
+            url.searchParams.set('_', timestamp);
+            link.href = url.toString();
+        });
+    });
 </script>
 
 <?php if ($just_created): ?>
@@ -213,10 +128,24 @@ window.addEventListener('load', function() {
     </div>
 <?php endif; ?>
 
+<?php if ($comment_success): ?>
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        Comment added successfully!
+    </div>
+<?php endif; ?>
+
+<?php if (isset($error_message)): ?>
+    <div class="alert alert-error">
+        <i class="fas fa-exclamation-circle"></i>
+        <?php echo htmlspecialchars($error_message); ?>
+    </div>
+<?php endif; ?>
+
 <div class="post-detail">
     <!-- Post Header -->
     <div class="post-header detail-header">
-        <a href="index.php" class="btn btn-outline btn-sm">
+        <a href="index.php?_=<?php echo time(); ?>" class="btn btn-outline btn-sm">
             <i class="fas fa-arrow-left"></i> Back to All Posts
         </a>
         
@@ -225,6 +154,7 @@ window.addEventListener('load', function() {
             <span class="post-time">
                 <i class="far fa-clock"></i> <?php echo format_date($post['created_at']); ?>
             </span>
+            <span class="cache-id">Page ID: <?php echo $unique_id; ?></span>
         </div>
     </div>
     
@@ -309,11 +239,12 @@ window.addEventListener('load', function() {
         <h3>
             <i class="fas fa-comments"></i> 
             Comments (<?php echo count($comments); ?>)
+            <small>Page ID: <?php echo $unique_id; ?></small>
         </h3>
         
         <!-- Add Comment Form -->
         <div class="add-comment">
-            <form action="post.php?id=<?php echo $post_id; ?>" method="POST" id="comment-form">
+            <form action="post.php?id=<?php echo $post_id; ?>&_=<?php echo time(); ?>" method="POST" id="comment-form">
                 <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token']; ?>">
                 <input type="hidden" name="add_comment" value="1">
                 
@@ -386,6 +317,24 @@ window.addEventListener('load', function() {
     </div>
 </div>
 
+<div class="cache-control-panel">
+    <details>
+        <summary>Cache Control Tools</summary>
+        <div class="cache-tools">
+            <p><small>If comments are not showing, try these tools:</small></p>
+            <button onclick="location.reload(true)" class="btn btn-sm btn-outline">
+                <i class="fas fa-sync-alt"></i> Force Refresh
+            </button>
+            <button onclick="clearAllCaches()" class="btn btn-sm btn-outline">
+                <i class="fas fa-trash-alt"></i> Clear Browser Caches
+            </button>
+            <a href="test_caching_issue.php?_=<?php echo time(); ?>" class="btn btn-sm btn-outline">
+                <i class="fas fa-vial"></i> Run Cache Tests
+            </a>
+        </div>
+    </details>
+</div>
+
 <script>
     // Character counter for comment
     const commentTextarea = document.getElementById('comment-content');
@@ -414,7 +363,7 @@ window.addEventListener('load', function() {
             const csrfToken = document.getElementById('csrf_token').value;
             
             try {
-                const response = await fetch('api/add_reaction.php', {
+                const response = await fetch('api/add_reaction.php?_=' + Date.now(), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -497,10 +446,39 @@ window.addEventListener('load', function() {
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Posting...';
     });
     
+    // Cache control functions
+    function clearAllCaches() {
+        if (confirm('Clear all browser caches? This will log you out of some sites.')) {
+            // Clear localStorage and sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            // Clear caches
+            if ('caches' in window) {
+                caches.keys().then(cacheNames => {
+                    return Promise.all(cacheNames.map(name => caches.delete(name)));
+                }).then(() => {
+                    alert('Caches cleared. Page will reload.');
+                    location.reload(true);
+                });
+            } else {
+                alert('Local storage cleared. Page will reload.');
+                location.reload(true);
+            }
+        }
+    }
+    
     // Auto-focus comment textarea if there's an error
     <?php if (isset($error_message) && strpos($error_message, 'comment') !== false): ?>
         document.getElementById('comment-content').focus();
     <?php endif; ?>
-</script>
-
-<?php require_once __DIR__ . '/includes/footer.php'; ?>
+    
+    // Check for Service Worker on load
+    document.addEventListener('DOMContentLoaded', function() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                if (registrations.length > 0) {
+                    console.warn('Service Worker active - may cause caching issues');
+                    const panel = document.querySelector('.cache-control-panel');
+                    if (panel) {
+                        panel.innerHTML = '<div class="alert alert-warning

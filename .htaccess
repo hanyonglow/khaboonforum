@@ -16,6 +16,22 @@
     
     # Content Security Policy
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com/ajax/libs/ https://fonts.googleapis.com/; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com/ajax/libs/ https://fonts.googleapis.com/; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com/; connect-src 'self'"
+    
+    # ============================================
+    # AGGRESSIVE CACHE PREVENTION FOR PHP PAGES
+    # ============================================
+    # Prevent caching of dynamic PHP pages
+    <FilesMatch "\.(php)$">
+        Header always set Cache-Control "no-cache, no-store, must-revalidate, max-age=0, s-maxage=0"
+        Header always set Pragma "no-cache"
+        Header always set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+        Header always set X-Accel-Expires "0"
+    </FilesMatch>
+    
+    # Allow caching of static assets
+    <FilesMatch "\.(css|js|jpg|jpeg|png|gif|webp|ico|svg|woff|woff2|ttf|eot)$">
+        Header always set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
 </IfModule>
 
 # Disable directory listing
