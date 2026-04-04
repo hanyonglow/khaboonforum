@@ -245,7 +245,7 @@ window.addEventListener('load', function() {
         </div>
         
         <div class="post-content">
-            <p><?php echo nl2br(htmlspecialchars($post['content'])); ?></p>
+            <p><?php echo nl2br(make_links_clickable(htmlspecialchars($post['content']))); ?></p>
             
             <?php if ($post['image_path']): ?>
                 <div class="post-image detail-image">
@@ -377,7 +377,7 @@ window.addEventListener('load', function() {
                         </div>
                         
                         <div class="comment-content">
-                            <p><?php echo nl2br(htmlspecialchars($comment['content'])); ?></p>
+                            <p><?php echo nl2br(make_links_clickable(htmlspecialchars($comment['content']))); ?></p>
                         </div>
                     </div>
                 <?php endforeach; ?>

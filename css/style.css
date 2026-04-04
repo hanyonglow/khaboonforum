@@ -97,6 +97,28 @@ a:hover {
     color: var(--primary-dark);
 }
 
+/* Text links within post/comment content */
+.text-link {
+    color: var(--primary-color);
+    text-decoration: underline;
+    word-break: break-all;
+    overflow-wrap: break-word;
+}
+
+.text-link:hover {
+    color: var(--primary-dark);
+    text-decoration: none;
+}
+
+.dark-theme .text-link {
+    color: var(--accent-color);
+}
+
+.dark-theme .text-link:hover {
+    color: #a78bfa;
+}
+}
+
 /* Header */
 .main-header {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);

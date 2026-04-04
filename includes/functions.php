@@ -545,4 +545,42 @@ function validate_post_content($content) {
     
     return ['valid' => true, 'content' => $content];
 }
+
+/**
+ * Make URLs in text clickable
+ */
+function make_links_clickable($text) {
+    // Pattern to match URLs with protocol (http, https, ftp)
+    $pattern = '/((?:https?|ftp):\/\/[^\s<>"\'{}|\\^`\[\]]+)/i';
+    
+    // Replace URLs with clickable links
+    $text = preg_replace_callback($pattern, function($matches) {
+        $url = htmlspecialchars($matches[1]);
+        $display_url = htmlspecialchars($matches[1]);
+        
+        // Shorten display if too long
+        if (strlen($display_url) > 50) {
+            $display_url = substr($display_url, 0, 47) . '...';
+        }
+        
+        return '<a href="' . $url . '" target="_blank" rel="noopener noreferrer" class="text-link">' . $display_url . '</a>';
+    }, $text);
+    
+    // Also match www. URLs without protocol
+    $pattern = '/(^|\s)(www\.[^\s<>"\'{}|\\^`\[\]]+)/i';
+    $text = preg_replace_callback($pattern, function($matches) {
+        $url = 'https://' . htmlspecialchars($matches[2]);
+        $display_url = htmlspecialchars($matches[2]);
+        
+        // Shorten display if too long
+        if (strlen($display_url) > 50) {
+            $display_url = substr($display_url, 0, 47) . '...';
+        }
+        
+        return $matches[1] . '<a href="' . $url . '" target="_blank" rel="noopener noreferrer" class="text-link">' . $display_url . '</a>';
+    }, $text);
+    
+    return $text;
+}
+
 ?>
