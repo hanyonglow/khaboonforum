@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initImageUpload();
     initReactions();
     initLoadMore();
+    initTimezoneDetection();
+    initTimestampConversion();
     
     console.log('KhaboonForum initialized successfully!');
 });
@@ -28,11 +30,17 @@ function initThemeToggle() {
         toggleTheme();
     });
     
-    // Load saved theme
+    // Load saved theme - default to dark if not set
     const savedTheme = localStorage.getItem('khaboon_theme');
-    if (savedTheme === 'dark') {
+    if (savedTheme === 'dark' || savedTheme === null) {
+        // Default to dark theme
         document.body.classList.add('dark-theme');
+        localStorage.setItem('khaboon_theme', 'dark');
         updateThemeIcon('dark');
+    } else if (savedTheme === 'light') {
+        // User explicitly chose light theme
+        document.body.classList.remove('dark-theme');
+        updateThemeIcon('light');
     }
 }
 
@@ -41,13 +49,21 @@ function toggleTheme() {
     const isDark = body.classList.contains('dark-theme');
     
     if (isDark) {
+        // Switch to light theme
         body.classList.remove('dark-theme');
         localStorage.setItem('khaboon_theme', 'light');
         updateThemeIcon('light');
+        
+        // Show notification
+        showToast('Switched to light theme', 'info');
     } else {
+        // Switch to dark theme
         body.classList.add('dark-theme');
         localStorage.setItem('khaboon_theme', 'dark');
         updateThemeIcon('dark');
+        
+        // Show notification
+        showToast('Switched to dark theme', 'info');
     }
 }
 
@@ -62,6 +78,40 @@ function updateThemeIcon(theme) {
         icon.classList.remove('fa-sun');
         icon.classList.add('fa-moon');
     }
+}
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'info') {
+    // Remove existing toast
+    const existingToast = document.querySelector('.toast-notification');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    // Add to page
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 3000);
 }
 
 /**
@@ -770,8 +820,179 @@ function initOfflineDetection() {
 }
 
 /**
- * Service Worker Registration (Progressive Web App)
+ * Timezone Detection and Conversion
  */
+function initTimezoneDetection() {
+    const timezoneElement = document.getElementById('user-timezone');
+    if (!timezoneElement) return;
+    
+    try {
+        // Get user's timezone
+        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const now = new Date();
+        
+        // Get timezone offset
+        const offset = now.getTimezoneOffset();
+        const offsetHours = Math.abs(Math.floor(offset / 60));
+        const offsetMinutes = Math.abs(offset % 60);
+        const offsetSign = offset <= 0 ? '+' : '-';
+        
+        // Format timezone display
+        let offsetDisplay = `GMT${offsetSign}${offsetHours}`;
+        if (offsetMinutes > 0) {
+            offsetDisplay += `:${offsetMinutes.toString().padStart(2, '0')}`;
+        }
+        
+        // Update display
+        timezoneElement.innerHTML = `<i class="fas fa-clock"></i> ${userTimezone} (${offsetDisplay})`;
+        timezoneElement.title = `Your local timezone: ${userTimezone}`;
+        
+        // Store in localStorage for future use
+        localStorage.setItem('user_timezone', userTimezone);
+        localStorage.setItem('user_timezone_offset', offset.toString());
+        
+        console.log(`Detected timezone: ${userTimezone} (${offsetDisplay})`);
+        
+    } catch (error) {
+        console.error('Error detecting timezone:', error);
+        timezoneElement.innerHTML = '<i class="fas fa-clock"></i> Local Time';
+    }
+}
+
+function initTimestampConversion() {
+    // Update all relative timestamps immediately
+    updateAllRelativeTimestamps();
+    
+    // Also update when new content is loaded
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                updateAllRelativeTimestamps();
+            }
+        });
+    });
+    
+    // Observe the entire document for changes
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
+
+function convertAllTimestamps() {
+    // Find all timestamp elements
+    const timestampElements = document.querySelectorAll('[data-utc-timestamp], .utc-timestamp');
+    
+    timestampElements.forEach(element => {
+        try {
+            let utcTimestamp;
+            
+            // Get timestamp from data attribute or element content
+            if (element.dataset.utcTimestamp) {
+                utcTimestamp = element.dataset.utcTimestamp;
+            } else if (element.textContent.includes('UTC')) {
+                utcTimestamp = element.textContent.trim();
+            } else {
+                return; // No UTC timestamp found
+            }
+            
+            // Parse UTC timestamp
+            const utcDate = new Date(utcTimestamp);
+            
+            // Check if date is valid
+            if (isNaN(utcDate.getTime())) {
+                console.warn('Invalid UTC timestamp:', utcTimestamp);
+                return;
+            }
+            
+            // Convert to local time
+            const localDate = new Date(utcDate.getTime());
+            
+            // Format for display
+            const options = {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            };
+            
+            const formattedDate = localDate.toLocaleString(undefined, options);
+            
+            // Update element
+            element.textContent = formattedDate;
+            element.title = `UTC: ${utcTimestamp}\nLocal: ${formattedDate}`;
+            
+            // Add a small indicator
+            if (!element.querySelector('.timezone-indicator')) {
+                const indicator = document.createElement('span');
+                indicator.className = 'timezone-indicator';
+                indicator.textContent = ' (local time)';
+                indicator.style.fontSize = '0.8em';
+                indicator.style.color = 'var(--text-light)';
+                element.appendChild(indicator);
+            }
+            
+        } catch (error) {
+            console.error('Error converting timestamp:', error, element);
+        }
+    });
+}
+
+/**
+ * Format relative time (similar to PHP format_date but in JavaScript)
+ */
+function formatRelativeTime(utcTimestamp) {
+    try {
+        const utcDate = new Date(utcTimestamp);
+        const now = new Date();
+        const diffMs = now.getTime() - utcDate.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+        
+        if (diffSec < 60) {
+            return 'just now';
+        } else if (diffSec < 3600) {
+            const minutes = Math.floor(diffSec / 60);
+            return minutes + ' minute' + (minutes > 1 ? 's' : '') + ' ago';
+        } else if (diffSec < 86400) {
+            const hours = Math.floor(diffSec / 3600);
+            return hours + ' hour' + (hours > 1 ? 's' : '') + ' ago';
+        } else if (diffSec < 604800) {
+            const days = Math.floor(diffSec / 86400);
+            return days + ' day' + (days > 1 ? 's' : '') + ' ago';
+        } else {
+            // For older posts, show date in local time
+            return utcDate.toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+    } catch (error) {
+        console.error('Error formatting relative time:', error);
+        return 'recently';
+    }
+}
+
+/**
+ * Update all relative timestamps on the page
+ */
+function updateAllRelativeTimestamps() {
+    const relativeTimeElements = document.querySelectorAll('[data-relative-time]');
+    
+    relativeTimeElements.forEach(element => {
+        const utcTimestamp = element.dataset.relativeTime;
+        if (utcTimestamp) {
+            const relativeTime = formatRelativeTime(utcTimestamp);
+            element.textContent = relativeTime;
+            element.title = `Posted: ${new Date(utcTimestamp).toLocaleString()}`;
+        }
+    });
+}
+
+// Update relative timestamps every minute
+setInterval(updateAllRelativeTimestamps, 60000);
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

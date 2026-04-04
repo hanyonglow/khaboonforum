@@ -222,7 +222,7 @@ window.addEventListener('load', function() {
         
         <div class="post-meta">
             <span class="post-id">#<?php echo $post['id']; ?></span>
-            <span class="post-time">
+            <span class="post-time" data-relative-time="<?php echo get_js_timestamp($post['created_at']); ?>">
                 <i class="far fa-clock"></i> <?php echo format_date($post['created_at']); ?>
             </span>
         </div>
@@ -237,7 +237,7 @@ window.addEventListener('load', function() {
                 </div>
                 <div class="author-info">
                     <strong><?php echo htmlspecialchars($post['user_name']); ?></strong>
-                    <span class="post-time">
+                    <span class="post-time" data-relative-time="<?php echo get_js_timestamp($post['created_at']); ?>">
                         <i class="far fa-clock"></i> <?php echo format_date($post['created_at']); ?>
                     </span>
                 </div>
@@ -369,7 +369,7 @@ window.addEventListener('load', function() {
                                 </div>
                                 <div class="author-info">
                                     <strong><?php echo htmlspecialchars($comment['user_name']); ?></strong>
-                                    <span class="comment-time">
+                                    <span class="comment-time" data-relative-time="<?php echo get_js_timestamp($comment['created_at']); ?>">
                                         <i class="far fa-clock"></i> <?php echo format_date($comment['created_at']); ?>
                                     </span>
                                 </div>

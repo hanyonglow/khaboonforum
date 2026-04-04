@@ -186,7 +186,7 @@ window.addEventListener('load', function() {
                         </div>
                         <div class="author-info">
                             <strong><?php echo htmlspecialchars($post['user_name']); ?></strong>
-                            <span class="post-time">
+                            <span class="post-time" data-relative-time="<?php echo get_js_timestamp($post['created_at']); ?>">
                                 <i class="far fa-clock"></i> <?php echo format_date($post['created_at']); ?>
                             </span>
                         </div>

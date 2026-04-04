@@ -5,8 +5,9 @@
 session_start();
 require_once __DIR__ . '/functions.php';
 
-// Set default timezone
-date_default_timezone_set('Asia/Singapore');
+// Set server timezone to UTC for consistency
+// All timestamps are stored in UTC, displayed in user's local time via JavaScript
+date_default_timezone_set('UTC');
 
 // Get cached username from cookie
 $cached_name = isset($_COOKIE['khaboon_name']) ? htmlspecialchars($_COOKIE['khaboon_name']) : '';
@@ -52,6 +53,9 @@ if (!isset($_SESSION['csrf_token'])) {
                         <li><a href="#" id="theme-toggle">
                             <i class="fas fa-moon"></i> Theme
                         </a></li>
+                        <li class="timezone-info" id="user-timezone">
+                            <i class="fas fa-clock"></i> Detecting timezone...
+                        </li>
                     </ul>
                 </nav>
             </div>

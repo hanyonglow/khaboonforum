@@ -165,6 +165,30 @@ a:hover {
     background: rgba(255, 255, 255, 0.1);
 }
 
+/* Timezone Indicator */
+.timezone-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-light);
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    margin-left: 1rem;
+}
+
+.timezone-info i {
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .timezone-info {
+        display: none;
+    }
+}
+
 /* Main Content */
 .content {
     min-height: calc(100vh - 300px);
@@ -254,6 +278,97 @@ a:hover {
 .alert i {
     font-size: 1.25rem;
     flex-shrink: 0;
+}
+
+/* Toast Notifications */
+.toast-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg-secondary);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    box-shadow: var(--shadow-xl);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    max-width: 350px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    transition: var(--transition);
+}
+
+.toast-notification:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl);
+}
+
+.toast-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.toast-content i {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.toast-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success-color);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.toast-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error-color);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.toast-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+.toast-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning-color);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: var(--text-light);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.toast-close:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-color);
+}
+
+.dark-theme .toast-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 /* Posts Grid */

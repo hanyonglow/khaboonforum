@@ -446,8 +446,11 @@ function create_thumbnail($source_path, $dest_path, $max_width = 300, $max_heigh
  * Format date for display
  */
 function format_date($timestamp) {
-    $now = time();
-    $diff = $now - strtotime($timestamp);
+    // All timestamps are stored in UTC in database
+    // Calculate relative time based on server time (which should be UTC)
+    $timestamp_utc = strtotime($timestamp); // Already UTC
+    $now = time(); // Server time, should be UTC
+    $diff = $now - $timestamp_utc;
     
     if ($diff < 60) {
         return 'just now';
@@ -461,8 +464,35 @@ function format_date($timestamp) {
         $days = floor($diff / 86400);
         return $days . ' day' . ($days > 1 ? 's' : '') . ' ago';
     } else {
-        return date('M j, Y', strtotime($timestamp));
+        // For older posts, show date only (timezone doesn't matter for date)
+        return date('M j, Y', $timestamp_utc);
     }
+}
+
+/**
+ * Get exact date time for display in UTC
+ * JavaScript will convert to local timezone
+ */
+function format_exact_datetime($timestamp) {
+    // Return UTC timestamp for JavaScript to convert
+    $timestamp_utc = strtotime($timestamp);
+    return date('Y-m-d H:i:s', $timestamp_utc) . ' UTC';
+}
+
+/**
+ * Get ISO 8601 format for JavaScript Date parsing
+ */
+function format_iso_datetime($timestamp) {
+    $timestamp_utc = strtotime($timestamp);
+    return date('c', $timestamp_utc); // ISO 8601 format
+}
+
+/**
+ * Get timestamp for JavaScript
+ */
+function get_js_timestamp($timestamp) {
+    $timestamp_utc = strtotime($timestamp);
+    return date('Y-m-d\TH:i:s\Z', $timestamp_utc); // ISO 8601 with Z for UTC
 }
 
 /**
